@@ -51,7 +51,7 @@ def memory_test():
     for _ in range(100_000):
         idx = random.randint(0, num_elements - 1)
         # Use modulo 256 for full 8-bit range wrap-around.
-        arr[idx] = (arr[idx] + 1) % 256
+        arr[idx] = (arr[idx] + 1) % 255
     del arr
     gc.collect()
 
