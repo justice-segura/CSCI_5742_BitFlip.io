@@ -17,7 +17,7 @@ def test_cpu_performance():
         num = random.random()
         result *= num if result != 0 else 1  # Avoid zero multiplication
     end_time = time.time()
-    print(f"CPU performance test completed in {end_time - start_time:.2f} seconds.")
+    print(f"CPU performance test completed in {end_time - start_time:.4f} seconds.")
 
 def test_memory_performance():
     """
@@ -42,9 +42,9 @@ def test_memory_performance():
     for _ in range(100_000):
         idx = random.randint(0, num_elements - 1)
         # Perform a read-modify-write operation (incrementing the byte value modulo 256)
-        arr[idx] = (arr[idx] + 1) % 256
+        arr[idx] = (arr[idx] + 1) % 255
     end_time = time.time()
-    print(f"Memory test completed in {end_time - start_time:.2f} seconds.")
+    print(f"Memory test completed in {end_time - start_time:.4f} seconds.")
     # Clean up the allocated array
     del arr
     # Optionally, you can force garbage collection to free up memory immediately.
@@ -72,7 +72,7 @@ def test_disk_io_performance():
     shutil.copy(source_file, destination_file)
     end_time = time.time()
 
-    print(f"Disk I/O performance test completed in {end_time - start_time:.2f} seconds.")
+    print(f"Disk I/O performance test completed in {end_time - start_time:.4f} seconds.")
 
     # Clean up the copied file
     if os.path.exists(destination_file):
