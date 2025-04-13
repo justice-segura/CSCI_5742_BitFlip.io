@@ -11,24 +11,9 @@ import datetime
 import math
 import json
 import csv
-
-# Try to import psutil for memory info. If not available, skip it.
-try:
-    import psutil
-except ImportError:
-    psutil = None
-
-# Try to import scipy.stats for confidence interval calculations.
-try:
-    from scipy import stats
-except ImportError:
-    stats = None
-
-# Try to import matplotlib for graphing.
-try:
-    import matplotlib.pyplot as plt
-except ImportError:
-    plt = None
+import psutil
+from scipy import stats
+import matplotlib.pyplot as plt
 
 ###############################################
 # Test Functions
