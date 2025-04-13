@@ -21,9 +21,8 @@ def memory_test():
     Memory performance test:
     Allocates a 2GB array of np.uint8 and performs 100,000 random read/write operations.
     """
-    # Define 2GB in bytes (using uint8 -> 1 byte per element)
-    size_bytes = 2 * 1024 * 1024 * 1024  
-    num_elements = size_bytes
+    size_bytes = 2 * 1024 * 1024 * 1024  # 2GB in bytes
+    num_elements = size_bytes  # Each element of np.uint8 is 1 byte
     try:
         arr = np.zeros(num_elements, dtype=np.uint8)
     except MemoryError:
@@ -32,7 +31,6 @@ def memory_test():
         idx = random.randint(0, num_elements - 1)
         # Increment the value modulo 255
         arr[idx] = (arr[idx] + 1) % 255
-    # Cleanup
     del arr
     gc.collect()
 
@@ -48,18 +46,16 @@ def disk_io_test():
     if not os.path.exists(source_file):
         print("Creating a 5GB test file. This may take a while...")
         with open(source_file, "wb") as f:
-            # os.urandom may take a while to generate 5GB. Adjust if necessary.
             f.write(os.urandom(5 * 1024 * 1024 * 1024))
     shutil.copy(source_file, destination_file)
     if os.path.exists(destination_file):
         os.remove(destination_file)
 
-def run_test(test_func, test_name, repeat=5):
+def run_test(test_func, test_name, repeat, number):
     """
     Run a given test function using timeit.repeat() and compute statistical measures.
     """
-    # Each "repeat" runs the test function (number=1 execution per repeat)
-    times = timeit.repeat(test_func, repeat=repeat, number=1)
+    times = timeit.repeat(test_func, repeat=repeat, number=number)
     mean_time = statistics.mean(times)
     median_time = statistics.median(times)
     std_dev_time = statistics.stdev(times) if repeat > 1 else 0
@@ -86,30 +82,42 @@ def main():
         default=None,
         help="Output file to write the results (default prints to terminal)"
     )
+    parser.add_argument(
+        "--repeat", "-r",
+        type=int,
+        default=5,
+        help="Number of times each test is repeated using timeit (default: 5)"
+    )
+    parser.add_argument(
+        "--number", "-n",
+        type=int,
+        default=1,
+        help="Number of executions per timeit repetition (default: 1)"
+    )
     args = parser.parse_args()
 
     results = []
 
     if "cpu" in args.tests:
-        print("Running CPU test 5 times...")
+        print("Running CPU test...")
         try:
-            cpu_results = run_test(cpu_test, "CPU Test")
+            cpu_results = run_test(cpu_test, "CPU Test", repeat=args.repeat, number=args.number)
             results.append(cpu_results)
         except Exception as e:
             results.append({'name': "CPU Test", 'error': str(e)})
 
     if "memory" in args.tests:
-        print("Running Memory test 5 times...")
+        print("Running Memory test...")
         try:
-            memory_results = run_test(memory_test, "Memory Test")
+            memory_results = run_test(memory_test, "Memory Test", repeat=args.repeat, number=args.number)
             results.append(memory_results)
         except MemoryError as e:
             results.append({'name': "Memory Test", 'error': str(e)})
 
     if "disk" in args.tests:
-        print("Running Disk I/O test 5 times...")
+        print("Running Disk I/O test...")
         try:
-            disk_results = run_test(disk_io_test, "Disk I/O Test")
+            disk_results = run_test(disk_io_test, "Disk I/O Test", repeat=args.repeat, number=args.number)
             results.append(disk_results)
         except Exception as e:
             results.append({'name': "Disk I/O Test", 'error': str(e)})
