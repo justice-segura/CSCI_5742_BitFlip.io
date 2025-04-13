@@ -24,6 +24,12 @@ try:
 except ImportError:
     stats = None
 
+# Try to import matplotlib for graphing.
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
+
 ###############################################
 # Test Functions
 ###############################################
@@ -55,7 +61,6 @@ def memory_test():
     del arr
     gc.collect()
 
-# Disk test helper: using a configurable file size (default 5GB).
 def disk_write_test(disk_size):
     """
     Disk Write Test:
@@ -75,7 +80,6 @@ def disk_read_test(disk_size):
     Reads the file created by disk_write_test in 1MB chunks.
     """
     file_name = "disk_test_file.bin"
-    # Ensure the file exists.
     if not os.path.exists(file_name):
         with open(file_name, "wb") as f:
             f.write(os.urandom(disk_size))
@@ -94,7 +98,6 @@ def disk_copy_test(disk_size):
     """
     source_file = "disk_test_file.bin"
     destination_file = "disk_test_file_copy.bin"
-    # Ensure the source file exists.
     if not os.path.exists(source_file):
         with open(source_file, "wb") as f:
             f.write(os.urandom(disk_size))
@@ -102,7 +105,6 @@ def disk_copy_test(disk_size):
     shutil.copy(source_file, destination_file)
     end = timeit.default_timer()
     duration = end - start
-    # Cleanup the copied file.
     if os.path.exists(destination_file):
         os.remove(destination_file)
     return duration
@@ -121,12 +123,10 @@ def compute_statistics(times):
     min_val = min(times)
     max_val = max(times)
     
-    # Compute 95% confidence interval for the mean.
     if n > 1:
         if stats:
             t_val = stats.t.ppf(1 - 0.025, n - 1)
         else:
-            # Fallback t-value for df=4 (n=5) is about 2.776; this is a rough estimate.
             t_val = 2.776  
         margin_error = t_val * (std_val / math.sqrt(n))
         ci_lower = mean_val - margin_error
@@ -146,12 +146,7 @@ def compute_statistics(times):
     }
 
 def run_test(test_func, test_name, repeat, number, disk_size=None):
-    """
-    Runs a test function using timeit.repeat() and returns the result dictionary.
-    If disk_size is provided, it is passed to the test function.
-    """
     if disk_size is not None:
-        # Wrap test_func to include disk_size.
         wrapped_func = lambda: test_func(disk_size)
     else:
         wrapped_func = test_func
@@ -165,9 +160,6 @@ def run_test(test_func, test_name, repeat, number, disk_size=None):
     }
 
 def warmup(test_func, warmup_count, disk_size=None):
-    """
-    Runs the test function a given number of times as a warm-up.
-    """
     if disk_size is not None:
         wrapped_func = lambda: test_func(disk_size)
     else:
@@ -176,9 +168,6 @@ def warmup(test_func, warmup_count, disk_size=None):
         wrapped_func()
 
 def get_system_info():
-    """
-    Gather basic system information.
-    """
     info = {
         'timestamp': datetime.datetime.now().isoformat(),
         'os': platform.platform(),
@@ -191,75 +180,150 @@ def get_system_info():
         info['available_memory'] = vm.available
     return info
 
-def output_results(system_info, test_results, out_format):
+def create_run_directory(base_dir="output"):
+    if not os.path.exists(base_dir):
+        os.mkdir(base_dir)
+    run_name = "run_" + datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = os.path.join(base_dir, run_name)
+    os.mkdir(run_dir)
+    graphs_dir = os.path.join(run_dir, "graphs")
+    os.mkdir(graphs_dir)
+    return run_dir, graphs_dir
+
+def generate_graphs(test_results, graphs_dir):
     """
-    Format the output based on the chosen format: text, csv, or json.
+    Generates line graphs for each test (iteration number vs time) and a
+    comparison bar chart. Graphs are saved in the specified graphs_dir.
+    Returns a tuple (line_graph_files, comp_chart_file) where:
+      - line_graph_files is a dict mapping test names to their graph file names.
+      - comp_chart_file is the file name for the comparison bar chart.
     """
-    if out_format == "json":
-        # Combine system info and tests.
-        output_dict = {
-            'system_info': system_info,
-            'tests': test_results
-        }
-        return json.dumps(output_dict, indent=4)
-    elif out_format == "csv":
-        # For CSV, produce rows with the test name and each statistic.
-        csv_rows = []
-        header = ['Test Name', 'Mean', 'Median', 'Std Dev', '25th Percentile', '75th Percentile', 'Min', 'Max', '95% CI Lower', '95% CI Upper', 'Times']
-        csv_rows.append(header)
-        for test in test_results:
-            stats_d = test.get('statistics', {})
-            row = [
-                test.get('name', ''),
-                f"{stats_d.get('mean', 0):.4f}",
-                f"{stats_d.get('median', 0):.4f}",
-                f"{stats_d.get('std_dev', 0):.4f}",
-                f"{stats_d.get('25th_percentile', 0):.4f}",
-                f"{stats_d.get('75th_percentile', 0):.4f}",
-                f"{stats_d.get('min', 0):.4f}",
-                f"{stats_d.get('max', 0):.4f}",
-                f"{stats_d.get('95%_ci', (0,0))[0]:.4f}",
-                f"{stats_d.get('95%_ci', (0,0))[1]:.4f}",
-                test.get('times', [])
-            ]
-            csv_rows.append(row)
-        # Convert CSV rows to a string.
-        from io import StringIO
-        sio = StringIO()
-        writer = csv.writer(sio)
-        writer.writerows(csv_rows)
-        return sio.getvalue()
-    else:  # plain text
-        lines = []
-        lines.append("System Information:")
-        for key, value in system_info.items():
-            lines.append(f"  {key}: {value}")
-        lines.append("")
-        for test in test_results:
-            lines.append(f"Test: {test.get('name', 'Unknown')}")
-            if 'statistics' in test:
-                s = test['statistics']
-                lines.append(f"  Times: {test.get('times', [])}")
-                lines.append(f"  Mean: {s.get('mean', 0):.4f} sec")
-                lines.append(f"  Median: {s.get('median', 0):.4f} sec")
-                lines.append(f"  Std Dev: {s.get('std_dev', 0):.4f} sec")
-                lines.append(f"  25th Percentile: {s.get('25th_percentile', 0):.4f} sec")
-                lines.append(f"  75th Percentile: {s.get('75th_percentile', 0):.4f} sec")
-                lines.append(f"  Min: {s.get('min', 0):.4f} sec")
-                lines.append(f"  Max: {s.get('max', 0):.4f} sec")
-                ci = s.get('95%_ci', (0, 0))
-                lines.append(f"  95% CI: ({ci[0]:.4f}, {ci[1]:.4f}) sec")
-            lines.append("")
-        return "\n".join(lines)
+    line_graph_files = {}
+    if plt is None:
+        print("Matplotlib is not installed. Skipping graph generation.")
+        return line_graph_files, None
+
+    # Create line graphs for individual tests.
+    for test in test_results:
+        if "statistics" in test and "times" in test:
+            times = test["times"]
+            iterations = list(range(1, len(times) + 1))
+            plt.figure()
+            plt.plot(iterations, times, marker='o')
+            plt.title(f"{test['name']} Timing per Iteration")
+            plt.xlabel("Run Iteration")
+            plt.ylabel("Time (s)")
+            plt.grid(True)
+            plt.tight_layout()
+            # File name: lower-case, no spaces, appended with _line.png.
+            file_name = test["name"].lower().replace(" ", "_") + "_line.png"
+            file_path = os.path.join(graphs_dir, file_name)
+            plt.savefig(file_path)
+            plt.close()
+            line_graph_files[test["name"]] = file_name
+
+    # Create a comparison bar chart of mean times with 95% CI error bars.
+    valid_tests = [test for test in test_results if "statistics" in test]
+    comp_chart_file = None
+    if valid_tests:
+        names = [test['name'] for test in valid_tests]
+        means = [test['statistics']['mean'] for test in valid_tests]
+        errors = [(test['statistics']['95%_ci'][1] - test['statistics']['95%_ci'][0]) / 2 for test in valid_tests]
+        plt.figure()
+        plt.bar(names, means, yerr=errors, capsize=5)
+        plt.title("Average Test Times with 95% Confidence Intervals")
+        plt.xlabel("Test")
+        plt.ylabel("Mean Time (s)")
+        plt.grid(True, axis='y')
+        plt.tight_layout()
+        comp_chart_file = "comparison_bar_chart.png"
+        comp_chart_path = os.path.join(graphs_dir, comp_chart_file)
+        plt.savefig(comp_chart_path)
+        plt.close()
+    return line_graph_files, comp_chart_file
+
+def generate_csv(test_results, out_dir):
+    """
+    Generates a CSV file containing raw test results and summary statistics.
+    The CSV is saved as 'results.csv' in the out_dir.
+    """
+    csv_file = os.path.join(out_dir, "results.csv")
+    header = ['Test Name', 'Mean', 'Median', 'Std Dev', '25th Percentile', '75th Percentile', 'Min', 'Max', '95% CI Lower', '95% CI Upper', 'Times']
+    rows = [header]
+    for test in test_results:
+        stats_d = test.get('statistics', {})
+        row = [
+            test.get('name', ''),
+            f"{stats_d.get('mean', 0):.4f}",
+            f"{stats_d.get('median', 0):.4f}",
+            f"{stats_d.get('std_dev', 0):.4f}",
+            f"{stats_d.get('25th_percentile', 0):.4f}",
+            f"{stats_d.get('75th_percentile', 0):.4f}",
+            f"{stats_d.get('min', 0):.4f}",
+            f"{stats_d.get('max', 0):.4f}",
+            f"{stats_d.get('95%_ci', (0,0))[0]:.4f}",
+            f"{stats_d.get('95%_ci', (0,0))[1]:.4f}",
+            test.get('times', [])
+        ]
+        rows.append(row)
+    with open(csv_file, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(rows)
+    return csv_file
+
+def generate_markdown(system_info, test_results, line_graph_files, comp_chart_file):
+    """
+    Generates a Markdown report (write-up.md) with system info, test details,
+    and embedded graphs. Graph image paths are relative to the report.
+    """
+    md_lines = []
+    md_lines.append("# Performance Test Results")
+    md_lines.append("")
+    md_lines.append("## System Information")
+    for key, value in system_info.items():
+        md_lines.append(f"- **{key.capitalize().replace('_', ' ')}:** {value}")
+    md_lines.append("")
+    md_lines.append("## Test Results")
+    for test in test_results:
+        md_lines.append(f"### {test.get('name', 'Unknown')}")
+        if "statistics" in test:
+            s = test["statistics"]
+            md_lines.append(f"- **Mean Time:** {s.get('mean', 0):.4f} seconds")
+            md_lines.append(f"- **Median Time:** {s.get('median', 0):.4f} seconds")
+            md_lines.append(f"- **Standard Deviation:** {s.get('std_dev', 0):.4f} seconds")
+            md_lines.append(f"- **25th Percentile:** {s.get('25th_percentile', 0):.4f} seconds")
+            md_lines.append(f"- **75th Percentile:** {s.get('75th_percentile', 0):.4f} seconds")
+            md_lines.append(f"- **Min Time:** {s.get('min', 0):.4f} seconds")
+            md_lines.append(f"- **Max Time:** {s.get('max', 0):.4f} seconds")
+            ci = s.get('95%_ci', (0, 0))
+            md_lines.append(f"- **95% Confidence Interval:** ({ci[0]:.4f}, {ci[1]:.4f}) seconds")
+        else:
+            md_lines.append("- **Error:** " + test.get("error", "Unknown error"))
+        # Include line graph image if available.
+        if test.get("name") in line_graph_files:
+            img_file = os.path.join("graphs", line_graph_files[test.get("name")])
+            md_lines.append("")
+            md_lines.append(f"![{test.get('name')} Line Graph]({img_file})")
+        md_lines.append("")
+    # Include the comparison chart if generated.
+    if comp_chart_file:
+        md_lines.append("## Comparison of Test Means")
+        comp_chart_path = os.path.join("graphs", comp_chart_file)
+        md_lines.append(f"![Comparison Bar Chart]({comp_chart_path})")
+    md_lines.append("")
+    md_lines.append("---")
+    md_lines.append(f"*Report generated on {datetime.datetime.now().isoformat()}*")
+    return "\n".join(md_lines)
 
 ###############################################
 # Main function with CLI argument handling
 ###############################################
 
 def main():
-    parser = argparse.ArgumentParser(description="Enhanced Performance Testing using timeit.")
+    parser = argparse.ArgumentParser(
+        description="Enhanced Performance Testing with CSV output, Markdown write-up, and graphs in an output directory structure."
+    )
     
-    # Test selection
     parser.add_argument(
         "--tests", "-t",
         nargs="+",
@@ -267,14 +331,6 @@ def main():
         choices=["cpu", "memory", "disk"],
         help="Specify which tests to run: cpu, memory, disk (default: all)"
     )
-    # Output file (if not provided, output to terminal)
-    parser.add_argument(
-        "--output", "-o",
-        type=str,
-        default=None,
-        help="Output file to write the results (default prints to terminal)"
-    )
-    # Timing configuration
     parser.add_argument(
         "--repeat", "-r",
         type=int,
@@ -287,29 +343,18 @@ def main():
         default=1,
         help="Number of executions per repetition (default: 1)"
     )
-    # Warm-up runs
     parser.add_argument(
         "--warmup", "-w",
         type=int,
         default=1,
         help="Number of warm-up runs for each test (default: 1)"
     )
-    # Optional seed for reproducibility in CPU test (if provided)
     parser.add_argument(
         "--seed", "-s",
         type=int,
         default=None,
         help="Optional random seed for reproducibility"
     )
-    # Output format: text, csv, or json
-    parser.add_argument(
-        "--format", "-f",
-        type=str,
-        choices=["text", "csv", "json"],
-        default="text",
-        help="Output format: text, csv, or json (default: text)"
-    )
-    # Disk file size in bytes (default 5GB)
     parser.add_argument(
         "--disk-size",
         type=int,
@@ -319,7 +364,6 @@ def main():
     
     args = parser.parse_args()
 
-    # Optionally set the random seed (affects CPU test and others using random)
     if args.seed is not None:
         random.seed(args.seed)
         np.random.seed(args.seed)
@@ -327,9 +371,7 @@ def main():
     system_info = get_system_info()
     test_results = []
 
-    ##################################
     # CPU Test
-    ##################################
     if "cpu" in args.tests:
         print("Warming up CPU test...")
         warmup(cpu_test, args.warmup)
@@ -340,9 +382,7 @@ def main():
         except Exception as e:
             test_results.append({'name': "CPU Test", 'error': str(e)})
 
-    ##################################
     # Memory Test
-    ##################################
     if "memory" in args.tests:
         print("Warming up Memory test...")
         warmup(memory_test, args.warmup)
@@ -353,11 +393,8 @@ def main():
         except MemoryError as e:
             test_results.append({'name': "Memory Test", 'error': str(e)})
 
-    ##################################
     # Disk I/O Tests
-    ##################################
     if "disk" in args.tests:
-        # Disk Write Test
         print("Warming up Disk Write test...")
         warmup(disk_write_test, args.warmup, disk_size=args.disk_size)
         print("Running Disk Write test...")
@@ -367,7 +404,6 @@ def main():
         except Exception as e:
             test_results.append({'name': "Disk Write Test", 'error': str(e)})
 
-        # Disk Read Test
         print("Warming up Disk Read test...")
         warmup(disk_read_test, args.warmup, disk_size=args.disk_size)
         print("Running Disk Read test...")
@@ -377,7 +413,6 @@ def main():
         except Exception as e:
             test_results.append({'name': "Disk Read Test", 'error': str(e)})
 
-        # Disk Copy Test
         print("Warming up Disk Copy test...")
         warmup(disk_copy_test, args.warmup, disk_size=args.disk_size)
         print("Running Disk Copy test...")
@@ -386,28 +421,29 @@ def main():
             test_results.append(disk_copy_result)
         except Exception as e:
             test_results.append({'name': "Disk Copy Test", 'error': str(e)})
-        
-        # Clean up the test file if it exists.
+
         test_file = "disk_test_file.bin"
         if os.path.exists(test_file):
             os.remove(test_file)
 
-    ##################################
-    # Format and Output Results
-    ##################################
-    output_text = output_results(system_info, test_results, args.format)
+    # Create run output directories.
+    run_dir, graphs_dir = create_run_directory()
 
-    if args.output:
-        try:
-            with open(args.output, "w") as f:
-                f.write(output_text)
-            print(f"Results written to {args.output}")
-        except Exception as e:
-            print(f"Error writing to file: {e}")
-            print(output_text)
-    else:
-        print("\nPerformance Test Results:\n")
-        print(output_text)
+    # Generate graphs (line graphs per test and comparison chart).
+    line_graph_files, comp_chart_file = generate_graphs(test_results, graphs_dir)
+
+    # Generate CSV with raw results.
+    csv_file = generate_csv(test_results, run_dir)
+
+    # Generate Markdown report (write-up.md).
+    markdown_content = generate_markdown(system_info, test_results, line_graph_files, comp_chart_file)
+    md_file_path = os.path.join(run_dir, "write-up.md")
+    with open(md_file_path, "w") as md_file:
+        md_file.write(markdown_content)
+
+    print(f"\nResults saved in: {os.path.abspath(run_dir)}")
+    print(f"- CSV: {csv_file}")
+    print(f"- Markdown report: {md_file_path}")
 
 if __name__ == "__main__":
     main()
