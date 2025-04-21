@@ -1,10 +1,57 @@
-stress-ng --vm 1 --vm-bytes 100% --vm-keep --timeout 600s
+# Investigating NVMe as an Alternative to RAM
+## Repository Outline
+```
+.
+├── README.md
+├── output (Directory Storing all executed runs with images and output)
+│   ├── run_20250413_152949 (Baseline Test with Swapspace)
+│   │   ├── graphs
+│   │   │   ├── comparison_bar_chart.png
+│   │   │   ├── cpu_test_line.png
+│   │   │   ├── disk_copy_test_line.png
+│   │   │   ├── disk_read_test_line.png
+│   │   │   ├── disk_write_test_line.png
+│   │   │   └── memory_test_line.png
+│   │   ├── results.csv
+│   │   └── write-up.md
+│   ├── run_20250413_154651 (Baseline Test with no Swapspace and Memory Stress Tested)
+│   │   ├── graphs
+│   │   │   ├── comparison_bar_chart.png
+│   │   │   ├── cpu_test_line.png
+│   │   │   ├── disk_copy_test_line.png
+│   │   │   ├── disk_read_test_line.png
+│   │   │   ├── disk_write_test_line.png
+│   │   │   └── memory_test_line.png
+│   │   ├── results.csv
+│   │   └── write-up.md
+│   ├── run_20250420_210823 (Test1: RAID0 Swapspace Test and Memory Stress Tested)
+│   │   ├── graphs
+│   │   │   ├── comparison_bar_chart.png
+│   │   │   ├── cpu_test_line.png
+│   │   │   ├── disk_copy_test_line.png
+│   │   │   ├── disk_read_test_line.png
+│   │   │   ├── disk_write_test_line.png
+│   │   │   └── memory_test_line.png
+│   │   ├── results.csv
+│   │   └── write-up.md
+│   └── run_20250420_211500 (Test1: RAID0 Swapspace Test and Memory Stress Tested)
+│       ├── graphs
+│       │   ├── comparison_bar_chart.png
+│       │   ├── cpu_test_line.png
+│       │   ├── disk_copy_test_line.png
+│       │   ├── disk_read_test_line.png
+│       │   ├── disk_write_test_line.png
+│       │   └── memory_test_line.png
+│       ├── results.csv
+│       └── write-up.md
+└── test_bed_script.py (Script containing all functions to execute the test)
+```
 
-free -m for memory usage
+## test_bed_script.py Description
+<TBD>
 
-su for access to run the python scripts
-
-Steps taken for raid environment:                                                         
+# Test Setup
+## Steps taken for raid environment:                                                         
                                                                                           
 1. Go into su privilege                                                                   
         `su`                                                                              
@@ -34,3 +81,19 @@ Steps taken for raid environment:
         `swapon /dev/md0`                                                                 
 1. Confirm the swapspace is using by looking at the swap file                             
         `cat /proc/swaps`
+
+## Running the Tests
+1. Have memory stressed so it can't be used for swap space (Terminal A)
+        `stress-ng --vm 1 --vm-bytes 100% --vm-keep --timeout 600s`
+1. Confirm the Memory is fully utilized (Terminal B)
+        `free -m`
+1. Navigate to Python Script
+        `cd /Documents/CSCI_5742_BitFlip.io`
+1. Run `su` to get privilege
+        `su` (password `root`)
+1. Run the python script
+        `python test_bed_script.py`
+1. Once script has completed, found it easiest to push the changes to GitHub to see the results in Markdown
+
+## Pushing to GitHub
+Configuring GitHub credentials to work was a bit of a pain.  Had to create a personal access token with all the credentials and then when pushing, put in username like normal and then the token as the password. This was the easiest route I had found.
