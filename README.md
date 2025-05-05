@@ -47,9 +47,6 @@
 └── test_bed_script.py (Script containing all functions to execute the test)
 ```
 
-## test_bed_script.py Description
-<TBD>
-
 # Test Setup
 ## Steps taken for raid environment:                                                         
                                                                                           
